@@ -1,0 +1,36 @@
+# VKFS Changelog
+
+## v0.3.0 (2026-04-04)
+
+### Features
+- Add SQLite local vector store adapter (pure Go, no CGo)
+- Add factory functions for embedding and vectorstore (pluggable backends)
+- Add Milvus Cloud gRPC backend support
+- Add SiliconFlow embedding provider via OpenAI-compatible API
+- Add chunker for file-to-chunk splitting (paragraph/line aware)
+- Add ingest command for importing local files
+- Add runnable examples for SQLite, Milvus, and Zilliz Cloud
+
+### Improvements
+- Auto-detect embedding dimension from provider
+- Remove hardcoded dimension from config
+- Consolidate provider instantiation into factory functions
+
+## v0.2.0 (2026-03-28)
+
+### Features
+- Cat command with chunk assembly and integrity validation
+- Grep command with BM25 + regex two-stage filtering
+- Search command with embedding + vector similarity
+- EmbeddingProvider interface (OpenAI + Cohere)
+- ZillizAdapter SearchText and SearchVector
+
+## v0.1.0 (2026-03-21)
+
+### Features
+- Core data model (VirtualNode, PathTree, Chunk, LazyPointer, SearchHit)
+- VectorStore interface with ZillizAdapter
+- Config loading (YAML + env var interpolation)
+- VirtualFS core with in-memory PathTree
+- CLI commands: ls, stat, find
+- vkfs-admin init command
