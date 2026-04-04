@@ -1,0 +1,21 @@
+# VKFS Configuration Example
+# Copy to ~/.vkfs/config.yaml and fill in your credentials
+
+vectorstore:
+  backend: zilliz          # or "qdrant"
+
+  zilliz:
+    endpoint: "${ZILLIZ_ENDPOINT}"
+    api_key: "${ZILLIZ_API_KEY}"
+    collection: "vkfs_test"
+
+embedding:
+  provider: openai          # or "cohere"
+
+  openai:
+    api_key: "${OPENAI_API_KEY}"
+    model: "text-embedding-3-small"
+
+cache:
+  enabled: true
+  max_size_mb: 100
