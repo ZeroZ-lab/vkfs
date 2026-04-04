@@ -6,8 +6,8 @@
 
 Unix-like filesystem commands over vector databases, built for AI agents.
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/zhengjianqiao/vkfs.svg)](https://pkg.go.dev/github.com/zhengjianqiao/vkfs)
-[![Go Report Card](https://goreportcard.com/badge/github.com/zhengjianqiao/vkfs)](https://goreportcard.com/report/github.com/zhengjianqiao/vkfs)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ZeroZ-lab/vkfs.svg)](https://pkg.go.dev/github.com/ZeroZ-lab/vkfs)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ZeroZ-lab/vkfs)](https://goreportcard.com/report/github.com/ZeroZ-lab/vkfs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
@@ -69,7 +69,7 @@ AI agents need to navigate and search large knowledge bases. Current options req
 ### 1. Install
 
 ```bash
-git clone https://github.com/zhengjianqiao/vkfs.git
+git clone https://github.com/ZeroZ-lab/vkfs.git
 cd vkfs
 make build
 ```
@@ -198,10 +198,10 @@ package main
 import (
     "context"
 
-    "github.com/zhengjianqiao/vkfs/internal/config"
-    "github.com/zhengjianqiao/vkfs/pkg/embedding"
-    "github.com/zhengjianqiao/vkfs/pkg/vectorstore"
-    "github.com/zhengjianqiao/vkfs/pkg/vfs"
+    "github.com/ZeroZ-lab/vkfs/internal/config"
+    "github.com/ZeroZ-lab/vkfs/pkg/embedding"
+    "github.com/ZeroZ-lab/vkfs/pkg/vectorstore"
+    "github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 func main() {

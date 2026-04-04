@@ -7,7 +7,7 @@ import (
 
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
-	"github.com/zhengjianqiao/vkfs/pkg/vfs"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // ZillizAdapter implements VectorStore interface for Zilliz Cloud (Milvus)

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhengjianqiao/vkfs/pkg/vfs"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // ZillizRESTAdapter implements VectorStore using Zilliz Cloud REST API (v2).

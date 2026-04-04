@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhengjianqiao/vkfs/pkg/vectorstore"
-	"github.com/zhengjianqiao/vkfs/pkg/vfs"
+	"github.com/ZeroZ-lab/vkfs/pkg/vectorstore"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // mockEmbedder returns deterministic fake embeddings for demo purposes.

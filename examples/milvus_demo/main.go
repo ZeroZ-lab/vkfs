@@ -22,9 +22,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/zhengjianqiao/vkfs/pkg/embedding"
-	"github.com/zhengjianqiao/vkfs/pkg/vectorstore"
-	"github.com/zhengjianqiao/vkfs/pkg/vfs"
+	"github.com/ZeroZ-lab/vkfs/pkg/embedding"
+	"github.com/ZeroZ-lab/vkfs/pkg/vectorstore"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 func main() {

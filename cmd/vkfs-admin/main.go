@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zhengjianqiao/vkfs/internal/config"
-	"github.com/zhengjianqiao/vkfs/pkg/embedding"
-	"github.com/zhengjianqiao/vkfs/pkg/vectorstore"
-	"github.com/zhengjianqiao/vkfs/pkg/vfs"
+	"github.com/ZeroZ-lab/vkfs/internal/config"
+	"github.com/ZeroZ-lab/vkfs/pkg/embedding"
+	"github.com/ZeroZ-lab/vkfs/pkg/vectorstore"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 var rootCmd = &cobra.Command{

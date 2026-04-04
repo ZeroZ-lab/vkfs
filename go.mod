@@ -1,4 +1,4 @@
-module github.com/zhengjianqiao/vkfs
+module github.com/ZeroZ-lab/vkfs
 
 go 1.26.1
 

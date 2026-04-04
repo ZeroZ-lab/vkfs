@@ -3,7 +3,7 @@ package embedding
 import (
 	"fmt"
 
-	"github.com/zhengjianqiao/vkfs/internal/config"
+	"github.com/ZeroZ-lab/vkfs/internal/config"
 )
 
 // NewFromConfig creates an EmbeddingProvider based on the configuration.

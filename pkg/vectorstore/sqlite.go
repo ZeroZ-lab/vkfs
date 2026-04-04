@@ -14,7 +14,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/zhengjianqiao/vkfs/pkg/vfs"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // SQLiteAdapter implements VectorStore using a local SQLite database.

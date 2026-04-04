@@ -3,7 +3,7 @@ package vectorstore
 import (
 	"context"
 
-	"github.com/zhengjianqiao/vkfs/pkg/vfs"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // VectorStore is the core interface for vector database operations.
