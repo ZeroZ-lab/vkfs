@@ -166,6 +166,41 @@ var grepCmd = &cobra.Command{
 	},
 }
 
+var ingestCmd = &cobra.Command{
+	Use:   "ingest <local-dir> <vkfs-path>",
+	Short: "Ingest files from local directory into virtual filesystem",
+	Long:  `Read files from a local directory, split into chunks, embed, and store in the vector database.`,
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		localDir := args[0]
+		vkfsPath := args[1]
+
+		// Validate local directory
+		info, err := os.Stat(localDir)
+		if err != nil {
+			return fmt.Errorf("failed to stat local directory: %w", err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("%s is not a directory", localDir)
+		}
+
+		fs, err := initFS()
+		if err != nil {
+			return err
+		}
+
+		result, err := fs.Ingest(context.Background(), localDir, vkfsPath)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Ingested %d files (%d chunks, %d bytes) into %s\n",
+			result.FilesIngested, result.ChunksCreated, result.BytesRead, vkfsPath)
+
+		return nil
+	},
+}
+
 var searchCmd = &cobra.Command{
 	Use:   "search <query> <path>",
 	Short: "Semantic search for query in files",
@@ -198,46 +233,23 @@ var searchCmd = &cobra.Command{
 
 // initFS initializes VirtualFS with config and vector store
 func initFS() (*vfs.VirtualFS, error) {
-	// Load config
 	cfg, err := config.LoadDefault()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Create vector store adapter
-	var store vfs.VectorStore
-	switch cfg.VectorStore.Backend {
-	case "zilliz":
-		adapter, err := vectorstore.NewZillizAdapter(vectorstore.ZillizConfig{
-			Endpoint:   cfg.VectorStore.Zilliz.Endpoint,
-			APIKey:     cfg.VectorStore.Zilliz.APIKey,
-			Collection: cfg.VectorStore.Zilliz.Collection,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Zilliz adapter: %w", err)
-		}
-		store = adapter
-	case "qdrant":
-		return nil, fmt.Errorf("Qdrant adapter not implemented yet")
-	default:
-		return nil, fmt.Errorf("unsupported vectorstore backend: %s", cfg.VectorStore.Backend)
+	embedder, err := embedding.NewFromConfig(cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	// Create embedding provider
-	var embedder vfs.EmbeddingProvider
-	switch cfg.Embedding.Provider {
-	case "openai":
-		embedder = embedding.NewOpenAIProvider(cfg.Embedding.OpenAI.APIKey, cfg.Embedding.OpenAI.Model)
-	case "cohere":
-		embedder = embedding.NewCohereProvider(cfg.Embedding.Cohere.APIKey, cfg.Embedding.Cohere.Model)
-	default:
-		return nil, fmt.Errorf("unsupported embedding provider: %s", cfg.Embedding.Provider)
+	store, err := vectorstore.NewFromConfig(cfg, embedder.Dimension())
+	if err != nil {
+		return nil, err
 	}
 
-	// Create VirtualFS
-	fs := vfs.NewVirtualFS(store, nil, embedder) // nil external store for now
+	fs := vfs.NewVirtualFS(store, nil, embedder)
 
-	// Initialize (load PathTree from vector DB)
 	ctx := context.Background()
 	if err := fs.Init(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize VirtualFS: %w", err)
@@ -258,6 +270,7 @@ func init() {
 	rootCmd.AddCommand(findCmd)
 	rootCmd.AddCommand(grepCmd)
 	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(ingestCmd)
 }
 
 func main() {

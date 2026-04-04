@@ -11,29 +11,42 @@ import (
 // Config represents the VKFS configuration
 type Config struct {
 	VectorStore struct {
-		Backend string `yaml:"backend"` // "zilliz" or "qdrant"
+		Backend string `yaml:"backend"` // "zilliz", "qdrant", or "sqlite"
 		Zilliz  struct {
 			Endpoint   string `yaml:"endpoint"`
 			APIKey     string `yaml:"api_key"`
 			Collection string `yaml:"collection"`
 		} `yaml:"zilliz"`
+		Milvus struct {
+			Endpoint   string `yaml:"endpoint"`
+			APIKey     string `yaml:"api_key"`
+			Collection string `yaml:"collection"`
+		} `yaml:"milvus"`
 		Qdrant struct {
 			Endpoint   string `yaml:"endpoint"`
 			APIKey     string `yaml:"api_key"`
 			Collection string `yaml:"collection"`
 		} `yaml:"qdrant"`
-	} `yaml:"vectorstore"`
+			SQLite struct {
+				Path string `yaml:"path"`
+			} `yaml:"sqlite"`
+		} `yaml:"vectorstore"`
 
 	Embedding struct {
-		Provider string `yaml:"provider"` // "openai" or "cohere"
+		Provider string `yaml:"provider"` // "openai", "cohere", or "siliconflow"
 		OpenAI   struct {
-			APIKey string `yaml:"api_key"`
-			Model  string `yaml:"model"`
+			APIKey  string `yaml:"api_key"`
+			Model   string `yaml:"model"`
+			BaseURL string `yaml:"base_url"`
 		} `yaml:"openai"`
 		Cohere struct {
 			APIKey string `yaml:"api_key"`
 			Model  string `yaml:"model"`
 		} `yaml:"cohere"`
+		SiliconFlow struct {
+			APIKey string `yaml:"api_key"`
+			Model  string `yaml:"model"`
+		} `yaml:"siliconflow"`
 	} `yaml:"embedding"`
 
 	ExternalStore struct {
@@ -104,8 +117,8 @@ func LoadDefault() (*Config, error) {
 // Validate checks configuration validity
 func (c *Config) Validate() error {
 	// Validate vectorstore backend
-	if c.VectorStore.Backend != "zilliz" && c.VectorStore.Backend != "qdrant" {
-		return fmt.Errorf("unsupported vectorstore backend: %s (must be 'zilliz' or 'qdrant')", c.VectorStore.Backend)
+	if c.VectorStore.Backend != "zilliz" && c.VectorStore.Backend != "milvus" && c.VectorStore.Backend != "qdrant" && c.VectorStore.Backend != "sqlite" {
+		return fmt.Errorf("unsupported vectorstore backend: %s (must be 'zilliz', 'milvus', 'qdrant', or 'sqlite')", c.VectorStore.Backend)
 	}
 
 	// Validate backend-specific config
@@ -121,7 +134,16 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	if c.VectorStore.Backend == "qdrant" {
+	if c.VectorStore.Backend == "milvus" {
+			if c.VectorStore.Milvus.Endpoint == "" {
+				return fmt.Errorf("milvus.endpoint is required")
+			}
+			if c.VectorStore.Milvus.Collection == "" {
+				return fmt.Errorf("milvus.collection is required")
+			}
+		}
+
+		if c.VectorStore.Backend == "qdrant" {
 		if c.VectorStore.Qdrant.Endpoint == "" {
 			return fmt.Errorf("qdrant.endpoint is required")
 		}
@@ -133,9 +155,11 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// SQLite: path defaults to ~/.vkfs/vkfs.db, no required fields
+
 	// Validate embedding provider
-	if c.Embedding.Provider != "openai" && c.Embedding.Provider != "cohere" {
-		return fmt.Errorf("provider '%s' not supported (must be 'openai' or 'cohere')", c.Embedding.Provider)
+	if c.Embedding.Provider != "openai" && c.Embedding.Provider != "cohere" && c.Embedding.Provider != "siliconflow" {
+		return fmt.Errorf("provider '%s' not supported (must be 'openai', 'cohere', or 'siliconflow')", c.Embedding.Provider)
 	}
 
 	// Validate embedding provider config
@@ -157,6 +181,15 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	if c.Embedding.Provider == "siliconflow" {
+		if c.Embedding.SiliconFlow.APIKey == "" {
+			return fmt.Errorf("siliconflow.api_key is required (set SILICONFLOW_API_KEY)")
+		}
+		if c.Embedding.SiliconFlow.Model == "" {
+			c.Embedding.SiliconFlow.Model = "BAAI/bge-m3" // default
+		}
+	}
+
 	return nil
 }
 
@@ -167,16 +200,26 @@ func interpolateEnvVars(cfg *Config) {
 	cfg.VectorStore.Zilliz.APIKey = expandEnv(cfg.VectorStore.Zilliz.APIKey)
 	cfg.VectorStore.Zilliz.Collection = expandEnv(cfg.VectorStore.Zilliz.Collection)
 
+	cfg.VectorStore.Milvus.Endpoint = expandEnv(cfg.VectorStore.Milvus.Endpoint)
+	cfg.VectorStore.Milvus.APIKey = expandEnv(cfg.VectorStore.Milvus.APIKey)
+	cfg.VectorStore.Milvus.Collection = expandEnv(cfg.VectorStore.Milvus.Collection)
+
 	cfg.VectorStore.Qdrant.Endpoint = expandEnv(cfg.VectorStore.Qdrant.Endpoint)
 	cfg.VectorStore.Qdrant.APIKey = expandEnv(cfg.VectorStore.Qdrant.APIKey)
 	cfg.VectorStore.Qdrant.Collection = expandEnv(cfg.VectorStore.Qdrant.Collection)
 
+	cfg.VectorStore.SQLite.Path = expandEnv(cfg.VectorStore.SQLite.Path)
+
 	// Embedding
 	cfg.Embedding.OpenAI.APIKey = expandEnv(cfg.Embedding.OpenAI.APIKey)
 	cfg.Embedding.OpenAI.Model = expandEnv(cfg.Embedding.OpenAI.Model)
+	cfg.Embedding.OpenAI.BaseURL = expandEnv(cfg.Embedding.OpenAI.BaseURL)
 
 	cfg.Embedding.Cohere.APIKey = expandEnv(cfg.Embedding.Cohere.APIKey)
 	cfg.Embedding.Cohere.Model = expandEnv(cfg.Embedding.Cohere.Model)
+
+	cfg.Embedding.SiliconFlow.APIKey = expandEnv(cfg.Embedding.SiliconFlow.APIKey)
+	cfg.Embedding.SiliconFlow.Model = expandEnv(cfg.Embedding.SiliconFlow.Model)
 
 	// ExternalStore
 	cfg.ExternalStore.S3.Bucket = expandEnv(cfg.ExternalStore.S3.Bucket)

@@ -14,6 +14,7 @@ import (
 type ZillizAdapter struct {
 	client     client.Client
 	collection string
+	dimension  int
 }
 
 // ZillizConfig holds Zilliz connection configuration
@@ -21,6 +22,7 @@ type ZillizConfig struct {
 	Endpoint   string
 	APIKey     string
 	Collection string
+	Dimension  int
 }
 
 // NewZillizAdapter creates a new Zilliz adapter
@@ -44,9 +46,15 @@ func NewZillizAdapter(cfg ZillizConfig) (*ZillizAdapter, error) {
 		return nil, fmt.Errorf("failed to connect to Zilliz: %w", err)
 	}
 
+	dimension := cfg.Dimension
+	if dimension == 0 {
+		dimension = 1536 // default for OpenAI text-embedding-3-small
+	}
+
 	return &ZillizAdapter{
 		client:     c,
 		collection: cfg.Collection,
+		dimension:  dimension,
 	}, nil
 }
 
@@ -68,8 +76,7 @@ func (z *ZillizAdapter) UpsertPathTree(ctx context.Context, tree vfs.PathTree) e
 	// For PathTree: doc_type = "path_tree", content = JSON, embedding = zero vector
 
 	// Create zero embedding (dimension must match collection schema)
-	// TODO: get dimension from collection schema
-	dimension := 1536 // OpenAI text-embedding-3-small default
+	dimension := z.dimension
 	zeroVec := make([]float32, dimension)
 
 	// Upsert operation
@@ -198,7 +205,49 @@ func (z *ZillizAdapter) GetChunksByPage(ctx context.Context, pageSlug string) ([
 // TODO: implement in Week 2
 
 func (z *ZillizAdapter) UpsertChunks(ctx context.Context, chunks []vfs.Chunk) error {
-	return fmt.Errorf("not implemented yet")
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	n := len(chunks)
+	ids := make([]string, n)
+	docTypes := make([]string, n)
+	pageSlugs := make([]string, n)
+	chunkIndices := make([]int64, n)
+	texts := make([]string, n)
+	embeddings := make([][]float32, n)
+	dimension := 1536
+
+	for i, chunk := range chunks {
+		ids[i] = chunk.ID
+		docTypes[i] = "chunk"
+		pageSlugs[i] = chunk.PageSlug
+		chunkIndices[i] = int64(chunk.ChunkIndex)
+		texts[i] = chunk.Text
+		if len(chunk.Embedding) > 0 {
+			embeddings[i] = chunk.Embedding
+			dimension = len(chunk.Embedding)
+		} else {
+			embeddings[i] = make([]float32, dimension)
+		}
+	}
+
+	_, err := z.client.Upsert(
+		ctx,
+		z.collection,
+		"",
+		entity.NewColumnVarChar("id", ids),
+		entity.NewColumnVarChar("doc_type", docTypes),
+		entity.NewColumnVarChar("page_slug", pageSlugs),
+		entity.NewColumnInt64("chunk_index", chunkIndices),
+		entity.NewColumnVarChar("text", texts),
+		entity.NewColumnFloatVector("embedding", dimension, embeddings),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to upsert chunks: %w", err)
+	}
+
+	return nil
 }
 
 func (z *ZillizAdapter) DeleteChunksByPage(ctx context.Context, pageSlug string) error {

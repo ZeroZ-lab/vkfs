@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zhengjianqiao/vkfs/internal/config"
+	"github.com/zhengjianqiao/vkfs/pkg/embedding"
 	"github.com/zhengjianqiao/vkfs/pkg/vectorstore"
 	"github.com/zhengjianqiao/vkfs/pkg/vfs"
 )
@@ -22,35 +23,23 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize VKFS - create empty PathTree with root node",
 	Long: `Initialize the VKFS knowledge base by creating an empty PathTree
-with a root node in the vector database. Run this once before using vkfs commands.`,
+	with a root node in the vector database. Run this once before using vkfs commands.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Load config
 		cfg, err := config.LoadDefault()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// Create vector store adapter
-		var store vectorstore.VectorStore
-		switch cfg.VectorStore.Backend {
-		case "zilliz":
-			adapter, err := vectorstore.NewZillizAdapter(vectorstore.ZillizConfig{
-				Endpoint:   cfg.VectorStore.Zilliz.Endpoint,
-				APIKey:     cfg.VectorStore.Zilliz.APIKey,
-				Collection: cfg.VectorStore.Zilliz.Collection,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to create Zilliz adapter: %w", err)
-			}
-			defer adapter.Close()
-			store = adapter
-		case "qdrant":
-			return fmt.Errorf("Qdrant adapter not implemented yet")
-		default:
-			return fmt.Errorf("unsupported vectorstore backend: %s", cfg.VectorStore.Backend)
+		embedder, err := embedding.NewFromConfig(cfg)
+		if err != nil {
+			return err
 		}
 
-		// Create empty PathTree with root node
+		store, err := vectorstore.NewFromConfig(cfg, embedder.Dimension())
+		if err != nil {
+			return err
+		}
+
 		tree := vfs.PathTree{
 			Nodes: map[string]vfs.VirtualNode{
 				"/": {
@@ -59,7 +48,7 @@ with a root node in the vector database. Run this once before using vkfs command
 					IsDir:     true,
 					Size:      0,
 					ModTime:   time.Now(),
-					VisibleTo: []string{"*"}, // public by default
+					VisibleTo: []string{"*"},
 					Metadata:  make(map[string]string),
 				},
 			},
@@ -70,15 +59,14 @@ with a root node in the vector database. Run this once before using vkfs command
 			},
 		}
 
-		// Store PathTree in vector database
 		ctx := context.Background()
 		if err := store.UpsertPathTree(ctx, tree); err != nil {
 			return fmt.Errorf("failed to initialize PathTree: %w", err)
 		}
 
-		fmt.Println("✓ VKFS initialized successfully")
+		fmt.Println("VKFS initialized successfully")
 		fmt.Printf("  Backend: %s\n", cfg.VectorStore.Backend)
-		fmt.Printf("  Collection: %s\n", getCollectionName(cfg))
+		fmt.Printf("  Collection: %s\n", cfg.VectorStore.Zilliz.Collection)
 		fmt.Printf("  Embedding: %s\n", tree.Metadata["embedding_model"])
 		fmt.Println("\nYou can now use vkfs commands:")
 		fmt.Println("  vkfs ls /")
@@ -94,17 +82,8 @@ func getEmbeddingModel(cfg *config.Config) string {
 		return cfg.Embedding.OpenAI.Model
 	case "cohere":
 		return cfg.Embedding.Cohere.Model
-	default:
-		return "unknown"
-	}
-}
-
-func getCollectionName(cfg *config.Config) string {
-	switch cfg.VectorStore.Backend {
-	case "zilliz":
-		return cfg.VectorStore.Zilliz.Collection
-	case "qdrant":
-		return cfg.VectorStore.Qdrant.Collection
+	case "siliconflow":
+		return cfg.Embedding.SiliconFlow.Model
 	default:
 		return "unknown"
 	}

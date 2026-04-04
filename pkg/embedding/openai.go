@@ -9,11 +9,12 @@ import (
 	"net/http"
 )
 
-// OpenAIProvider implements EmbeddingProvider for OpenAI
+// OpenAIProvider implements EmbeddingProvider for OpenAI-compatible APIs
 type OpenAIProvider struct {
-	apiKey string
-	model  string
-	client *http.Client
+	apiKey   string
+	model    string
+	baseURL  string
+	client   *http.Client
 }
 
 // NewOpenAIProvider creates a new OpenAI embedding provider
@@ -23,10 +24,17 @@ func NewOpenAIProvider(apiKey, model string) *OpenAIProvider {
 	}
 
 	return &OpenAIProvider{
-		apiKey: apiKey,
-		model:  model,
-		client: &http.Client{},
+		apiKey:  apiKey,
+		model:   model,
+		baseURL: "https://api.openai.com/v1/embeddings",
+		client:  &http.Client{},
 	}
+}
+
+// WithBaseURL sets a custom API base URL (for OpenAI-compatible providers)
+func (p *OpenAIProvider) WithBaseURL(url string) *OpenAIProvider {
+	p.baseURL = url
+	return p
 }
 
 // Embed converts a single text to embedding
@@ -56,7 +64,7 @@ func (p *OpenAIProvider) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/embeddings", bytes.NewReader(reqJSON))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL, bytes.NewReader(reqJSON))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -98,11 +106,11 @@ func (p *OpenAIProvider) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 
 // Dimension returns the embedding dimension
 func (p *OpenAIProvider) Dimension() int {
-	// text-embedding-3-small: 1536
-	// text-embedding-3-large: 3072
 	switch p.model {
 	case "text-embedding-3-large":
 		return 3072
+	case "BAAI/bge-m3":
+		return 1024
 	default:
 		return 1536
 	}

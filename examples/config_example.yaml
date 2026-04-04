@@ -1,0 +1,69 @@
+# VKFS Configuration Examples
+
+# --- SQLite (local, zero dependencies) ---
+vectorstore:
+  backend: sqlite
+  sqlite:
+    path: "~/.vkfs/vkfs.db"
+
+embedding:
+  provider: siliconflow
+  siliconflow:
+    api_key: "${SILICONFLOW_API_KEY}"
+    model: "BAAI/bge-m3"
+
+# --- Milvus Cloud (gRPC, Dedicated plan) ---
+# vectorstore:
+#   backend: milvus
+#   milvus:
+#     endpoint: "in03-xxxxx.aws-us-east-1.cloud.zilliz.com:19530"
+#     api_key: "${MILVUS_API_KEY}"
+#     collection: "vkfs_test"
+#
+# embedding:
+#   provider: siliconflow
+#   siliconflow:
+#     api_key: "${SILICONFLOW_API_KEY}"
+#     model: "BAAI/bge-m3"
+
+# --- Zilliz Cloud (Serverless, REST API) ---
+# vectorstore:
+#   backend: zilliz
+#   zilliz:
+#     endpoint: "https://in03-xxx.serverless.aws-eu-central-1.cloud.zilliz.com"
+#     api_key: "${ZILLIZ_API_KEY}"
+#     collection: "vkfs_test"
+#
+# embedding:
+#   provider: siliconflow
+#   siliconflow:
+#     api_key: "${SILICONFLOW_API_KEY}"
+#     model: "BAAI/bge-m3"
+
+# --- Zilliz Cloud + OpenAI ---
+# vectorstore:
+#   backend: zilliz
+#   zilliz:
+#     endpoint: "https://in03-xxx.serverless.aws-eu-central-1.cloud.zilliz.com"
+#     api_key: "${ZILLIZ_API_KEY}"
+#     collection: "vkfs_test"
+#
+# embedding:
+#   provider: openai
+#   openai:
+#     api_key: "${OPENAI_API_KEY}"
+#     model: "text-embedding-3-small"
+
+# --- Zilliz Cloud + Cohere ---
+# vectorstore:
+#   backend: zilliz
+#   zilliz:
+#     endpoint: "https://in03-xxx.serverless.aws-eu-central-1.cloud.zilliz.com"
+#     api_key: "${ZILLIZ_API_KEY}"
+#     collection: "vkfs_test"
+#
+# embedding:
+#   provider: cohere
+#   cohere:
+#     api_key: "${COHERE_API_KEY}"
+#     model: "embed-english-v3.0"

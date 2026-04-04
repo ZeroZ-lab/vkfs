@@ -1,5 +1,10 @@
 # Binaries
 bin/
+/vkfs
+/vkfs-admin
+/sqlite_demo
+/milvus_demo
+/zilliz_cloud_demo
 *.exe
 *.exe~
 *.dll

@@ -3,21 +3,23 @@ package vfs
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 )
 
-// VectorStore interface (forward declaration - actual interface in pkg/vectorstore)
+// VectorStore interface for vector database operations.
+// Implemented by ZillizAdapter, QdrantAdapter, etc.
 type VectorStore interface {
 	UpsertPathTree(ctx context.Context, tree PathTree) error
 	GetPathTree(ctx context.Context) (PathTree, error)
+	UpsertChunks(ctx context.Context, chunks []Chunk) error
 	GetChunksByPage(ctx context.Context, pageSlug string) ([]Chunk, error)
 	GetLazyPointer(ctx context.Context, pageSlug string) (*LazyPointer, error)
 	SearchText(ctx context.Context, pattern string, filter PathFilter, limit int) ([]Chunk, error)
 	SearchVector(ctx context.Context, queryVec []float32, filter PathFilter, topK int) ([]SearchHit, error)
-	// ... other methods
 }
 
 // ExternalStore interface for lazy pointer storage
@@ -28,6 +30,7 @@ type ExternalStore interface {
 // EmbeddingProvider interface for text-to-vector conversion
 type EmbeddingProvider interface {
 	Embed(ctx context.Context, text string) ([]float32, error)
+	EmbedBatch(ctx context.Context, texts []string) ([][]float32, error)
 }
 
 // VirtualFS represents the virtual filesystem with in-memory PathTree
@@ -416,4 +419,157 @@ func (fs *VirtualFS) Search(ctx context.Context, query string, rootPath string, 
 	}
 
 	return hits, nil
+}
+
+// IngestResult holds statistics from an ingest operation
+type IngestResult struct {
+	FilesIngested int
+	ChunksCreated int
+	BytesRead     int64
+}
+
+// Ingest reads files from a local directory and ingests them into the virtual filesystem.
+func (fs *VirtualFS) Ingest(ctx context.Context, localDir string, vkfsPath string) (*IngestResult, error) {
+	// Normalize vkfs path
+	vkfsPath = strings.TrimRight(vkfsPath, "/")
+	if vkfsPath == "" {
+		vkfsPath = "/"
+	}
+
+	// Read local directory
+	entries, err := os.ReadDir(localDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read local directory: %w", err)
+	}
+
+	var allChunks []Chunk
+	var newNodes []VirtualNode
+	result := &IngestResult{}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue // skip subdirectories for now
+		}
+
+		localPath := filepath.Join(localDir, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat %s: %w", localPath, err)
+		}
+
+		// Read file content
+		content, err := os.ReadFile(localPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", localPath, err)
+		}
+
+		// Build vkfs path for this file
+		fileVKFSPath := vkfsPath + "/" + entry.Name()
+
+		// Split into chunks
+		chunks := SplitFile(fileVKFSPath, content, 0)
+		if len(chunks) == 0 {
+			continue
+		}
+
+		// Embed all chunk texts in batch
+		texts := make([]string, len(chunks))
+		for i, c := range chunks {
+			texts[i] = c.Text
+		}
+
+		embeddings, err := fs.embedder.EmbedBatch(ctx, texts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to embed chunks for %s: %w", entry.Name(), err)
+		}
+
+		// Attach embeddings to chunks
+		for i := range chunks {
+			if i < len(embeddings) {
+				chunks[i].Embedding = embeddings[i]
+			}
+		}
+
+		allChunks = append(allChunks, chunks...)
+
+		// Create VirtualNode for this file
+		newNodes = append(newNodes, VirtualNode{
+			Path:    fileVKFSPath,
+			Name:    entry.Name(),
+			IsDir:   false,
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+		})
+
+		result.FilesIngested++
+		result.BytesRead += int64(len(content))
+	}
+
+	if len(allChunks) == 0 {
+		return result, nil
+	}
+
+	// Update PathTree with new nodes
+	if fs.tree.Nodes == nil {
+		fs.tree.Nodes = make(map[string]VirtualNode)
+	}
+
+	// Ensure parent directories exist in tree
+	ensureDirInTree(&fs.tree, vkfsPath)
+
+	// Add file nodes
+	for _, node := range newNodes {
+		fs.tree.Nodes[node.Path] = node
+	}
+
+	// Persist updated PathTree
+	if err := fs.vectorStore.UpsertPathTree(ctx, fs.tree); err != nil {
+		return nil, fmt.Errorf("failed to persist PathTree: %w", err)
+	}
+
+	// Persist chunks
+	if err := fs.vectorStore.UpsertChunks(ctx, allChunks); err != nil {
+		return nil, fmt.Errorf("failed to persist chunks: %w", err)
+	}
+
+	// Rebuild in-memory indexes
+	fs.buildIndexes()
+
+	result.ChunksCreated = len(allChunks)
+	return result, nil
+}
+
+// ensureDirInTree adds directory nodes to the tree for a given path and all parents.
+func ensureDirInTree(tree *PathTree, dirPath string) {
+	if dirPath == "/" {
+		// Ensure root exists
+		if _, ok := tree.Nodes["/"]; !ok {
+			tree.Nodes["/"] = VirtualNode{
+				Path:  "/",
+				Name:  "/",
+				IsDir: true,
+			}
+		}
+		return
+	}
+
+	parts := strings.Split(strings.Trim(dirPath, "/"), "/")
+	current := ""
+	for _, part := range parts {
+		parent := current
+		current = current + "/" + part
+
+		if _, ok := tree.Nodes[current]; !ok {
+			tree.Nodes[current] = VirtualNode{
+				Path:  current,
+				Name:  part,
+				IsDir: true,
+			}
+		}
+
+		// Also ensure parent exists
+		if parent == "" {
+			ensureDirInTree(tree, "/")
+		}
+	}
 }

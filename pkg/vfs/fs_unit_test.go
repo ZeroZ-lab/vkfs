@@ -53,6 +53,13 @@ func (m *mockVectorStore) SearchVector(_ context.Context, _ []float32, _ PathFil
 	return []SearchHit{}, nil
 }
 
+func (m *mockVectorStore) UpsertChunks(_ context.Context, chunks []Chunk) error {
+	for _, c := range chunks {
+		m.chunks[c.PageSlug] = append(m.chunks[c.PageSlug], c)
+	}
+	return nil
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		func() bool {
