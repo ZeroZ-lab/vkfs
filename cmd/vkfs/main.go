@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/ZeroZ-lab/vkfs/benchmarks/recall"
 	"github.com/ZeroZ-lab/vkfs/internal/config"
 	"github.com/ZeroZ-lab/vkfs/pkg/embedding"
 	"github.com/ZeroZ-lab/vkfs/pkg/vectorstore"
@@ -231,6 +234,80 @@ var searchCmd = &cobra.Command{
 	},
 }
 
+var benchCmd = &cobra.Command{
+	Use:   "bench --data-dir <path> --config <path>",
+	Short: "Run recall accuracy benchmark",
+	Long:  `Run recall accuracy benchmark against VKFS using a dataset of documents and queries with ground truth relevance.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dataDir, _ := cmd.Flags().GetString("data-dir")
+		configPath, _ := cmd.Flags().GetString("config")
+		topKStr, _ := cmd.Flags().GetString("top-k")
+		searchType, _ := cmd.Flags().GetString("search-type")
+		output, _ := cmd.Flags().GetString("output")
+
+		if dataDir == "" {
+			return fmt.Errorf("--data-dir is required")
+		}
+		if configPath == "" {
+			return fmt.Errorf("--config is required")
+		}
+
+		// Parse top-k
+		topKs := []int{1, 3, 5, 10}
+		if topKStr != "" {
+			parts := strings.Split(topKStr, ",")
+			topKs = make([]int, 0, len(parts))
+			for _, p := range parts {
+				k, err := strconv.Atoi(strings.TrimSpace(p))
+				if err != nil {
+					return fmt.Errorf("invalid top-k value %q: %w", p, err)
+				}
+				topKs = append(topKs, k)
+			}
+		}
+
+		// Parse search type
+		st, err := recall.ParseSearchType(searchType)
+		if err != nil {
+			return err
+		}
+
+		// Load config
+		cfg, err := config.Load(configPath)
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+
+		// Create and run benchmark
+		bench, err := recall.NewBenchmark(recall.BenchmarkConfig{
+			DataDir: dataDir,
+			Config:  cfg,
+			TopK:    topKs,
+			Search:  st,
+
+		})
+		if err != nil {
+			return fmt.Errorf("setup benchmark: %w", err)
+		}
+
+		report, err := bench.Run(context.Background())
+		if err != nil {
+			return fmt.Errorf("run benchmark: %w", err)
+		}
+
+		report.PrintSummary(os.Stdout)
+
+		if output != "" {
+			if err := report.WriteJSON(output); err != nil {
+				return fmt.Errorf("write report: %w", err)
+			}
+			fmt.Fprintf(os.Stdout, "Report saved to: %s\n", output)
+		}
+
+		return nil
+	},
+}
+
 // initFS initializes VirtualFS with config and vector store
 func initFS() (*vfs.VirtualFS, error) {
 	cfg, err := config.LoadDefault()
@@ -262,6 +339,12 @@ func init() {
 	// Add flags
 	findCmd.Flags().StringP("name", "n", "", "filename pattern (glob)")
 	searchCmd.Flags().Int("top-k", 10, "number of results to return")
+	benchCmd.Flags().String("data-dir", "", "path to dataset directory with corpus.jsonl and queries.jsonl")
+	benchCmd.Flags().String("config", "", "path to VKFS config file")
+	benchCmd.Flags().String("top-k", "1,3,5,10", "comma-separated K values for metrics")
+	benchCmd.Flags().String("search-type", "both", "search type: semantic, text, or both")
+	benchCmd.Flags().String("output", "", "output JSON report path")
+	benchCmd.Flags().Bool("verbose", false, "show per-query details")
 
 	// Add commands
 	rootCmd.AddCommand(lsCmd)
@@ -271,6 +354,7 @@ func init() {
 	rootCmd.AddCommand(grepCmd)
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(ingestCmd)
+	rootCmd.AddCommand(benchCmd)
 }
 
 func main() {

@@ -1,0 +1,10 @@
+{"query_id": "q-001", "query": "Go语言如何实现并发编程", "relevant_doc_ids": ["go-goroutine", "go-channel"]}
+{"query_id": "q-002", "query": "数据库如何提高查询速度", "relevant_doc_ids": ["db-index"]}
+{"query_id": "q-003", "query": "Raft和Paxos有什么区别", "relevant_doc_ids": ["dist-consensus"]}
+{"query_id": "q-004", "query": "如何防止模型过拟合", "relevant_doc_ids": ["ml-loss"]}
+{"query_id": "q-005", "query": "REST API设计最佳实践", "relevant_doc_ids": ["web-rest"]}
+{"query_id": "q-006", "query": "缓存穿透怎么解决", "relevant_doc_ids": ["dist-cache"]}
+{"query_id": "q-007", "query": "词向量和文本表示方法", "relevant_doc_ids": ["ml-embedding"]}
+{"query_id": "q-008", "query": "goroutine", "relevant_doc_ids": ["go-goroutine"]}
+{"query_id": "q-009", "query": "Transformer自注意力机制", "relevant_doc_ids": ["ml-transformer"]}
+{"query_id": "q-010", "query": "数据库分片策略和挑战", "relevant_doc_ids": ["db-sharding"]}

@@ -24,3 +24,20 @@ embedding:
 cache:
   enabled: true
   max_size_mb: 100
+
+# ── Benchmark (vkfs bench) ──────────────────────────────
+# The bench command uses the same config for vectorstore + embedding.
+# For local benchmarking with SQLite + Ollama:
+#
+# vectorstore:
+#   backend: sqlite
+#   sqlite:
+#     path: ""  # bench overrides to temp dir
+#
+# embedding:
+#   provider: ollama
+#   ollama:
+#     base_url: "http://localhost:11434"
+#     model: "nomic-embed-text"
+#
+# See benchmarks/data/example/config.yaml for a working example.
