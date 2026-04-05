@@ -33,7 +33,7 @@ type Config struct {
 		} `yaml:"vectorstore"`
 
 	Embedding struct {
-		Provider string `yaml:"provider"` // "openai", "cohere", or "siliconflow"
+		Provider string `yaml:"provider"` // "openai", "cohere", "siliconflow", or "ollama"
 		OpenAI   struct {
 			APIKey  string `yaml:"api_key"`
 			Model   string `yaml:"model"`
@@ -47,6 +47,11 @@ type Config struct {
 			APIKey string `yaml:"api_key"`
 			Model  string `yaml:"model"`
 		} `yaml:"siliconflow"`
+		Ollama struct {
+			BaseURL string `yaml:"base_url"`
+			Model   string `yaml:"model"`
+			APIKey  string `yaml:"api_key"`
+		} `yaml:"ollama"`
 	} `yaml:"embedding"`
 
 	ExternalStore struct {
@@ -158,8 +163,8 @@ func (c *Config) Validate() error {
 	// SQLite: path defaults to ~/.vkfs/vkfs.db, no required fields
 
 	// Validate embedding provider
-	if c.Embedding.Provider != "openai" && c.Embedding.Provider != "cohere" && c.Embedding.Provider != "siliconflow" {
-		return fmt.Errorf("provider '%s' not supported (must be 'openai', 'cohere', or 'siliconflow')", c.Embedding.Provider)
+	if c.Embedding.Provider != "openai" && c.Embedding.Provider != "cohere" && c.Embedding.Provider != "siliconflow" && c.Embedding.Provider != "ollama" {
+		return fmt.Errorf("provider '%s' not supported (must be 'openai', 'cohere', 'siliconflow', or 'ollama')", c.Embedding.Provider)
 	}
 
 	// Validate embedding provider config
@@ -187,6 +192,15 @@ func (c *Config) Validate() error {
 		}
 		if c.Embedding.SiliconFlow.Model == "" {
 			c.Embedding.SiliconFlow.Model = "BAAI/bge-m3" // default
+		}
+	}
+
+	if c.Embedding.Provider == "ollama" {
+		if c.Embedding.Ollama.Model == "" {
+			return fmt.Errorf("ollama.model is required")
+		}
+		if c.Embedding.Ollama.BaseURL == "" {
+			c.Embedding.Ollama.BaseURL = "http://localhost:11434"
 		}
 	}
 
@@ -220,6 +234,10 @@ func interpolateEnvVars(cfg *Config) {
 
 	cfg.Embedding.SiliconFlow.APIKey = expandEnv(cfg.Embedding.SiliconFlow.APIKey)
 	cfg.Embedding.SiliconFlow.Model = expandEnv(cfg.Embedding.SiliconFlow.Model)
+
+	cfg.Embedding.Ollama.BaseURL = expandEnv(cfg.Embedding.Ollama.BaseURL)
+	cfg.Embedding.Ollama.Model = expandEnv(cfg.Embedding.Ollama.Model)
+	cfg.Embedding.Ollama.APIKey = expandEnv(cfg.Embedding.Ollama.APIKey)
 
 	// ExternalStore
 	cfg.ExternalStore.S3.Bucket = expandEnv(cfg.ExternalStore.S3.Bucket)

@@ -21,6 +21,15 @@ func NewFromConfig(cfg *config.Config) (EmbeddingProvider, error) {
 		p := NewOpenAIProvider(cfg.Embedding.SiliconFlow.APIKey, cfg.Embedding.SiliconFlow.Model)
 		p.WithBaseURL("https://api.siliconflow.cn/v1/embeddings")
 		return p, nil
+	case "ollama":
+		p := NewOllamaProvider(cfg.Embedding.Ollama.Model)
+		if cfg.Embedding.Ollama.BaseURL != "" {
+			p.WithBaseURL(cfg.Embedding.Ollama.BaseURL)
+		}
+		if cfg.Embedding.Ollama.APIKey != "" {
+			p.WithAPIKey(cfg.Embedding.Ollama.APIKey)
+		}
+		return p, nil
 	default:
 		return nil, fmt.Errorf("unsupported embedding provider: %s", cfg.Embedding.Provider)
 	}

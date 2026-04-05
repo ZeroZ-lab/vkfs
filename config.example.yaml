@@ -16,6 +16,11 @@ embedding:
     api_key: "${OPENAI_API_KEY}"
     model: "text-embedding-3-small"
 
+  # ollama:
+  #   base_url: "http://localhost:11434"
+  #   model: "nomic-embed-text"
+  #   # api_key: ""   # optional, for authenticated remote instances
+
 cache:
   enabled: true
   max_size_mb: 100
