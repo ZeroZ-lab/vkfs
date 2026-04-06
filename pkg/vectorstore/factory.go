@@ -10,6 +10,11 @@ import (
 // NewFromConfig creates a VectorStore based on the configuration.
 // The dimension parameter is typically obtained from the embedding provider.
 func NewFromConfig(cfg *config.Config, dimension int) (vfs.VectorStore, error) {
+	// Validate dimension - must be positive
+	if dimension <= 0 {
+		return nil, fmt.Errorf("invalid embedding dimension %d: dimension must be a positive integer. If using Ollama, please configure a specific model dimension in your config", dimension)
+	}
+
 	switch cfg.VectorStore.Backend {
 	case "zilliz":
 		adapter, err := NewZillizRESTAdapter(ZillizRESTConfig{

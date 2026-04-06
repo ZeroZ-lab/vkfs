@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/ZeroZ-lab/vkfs/pkg/vectorstore"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // Test helper functions for setting up test fixtures
 
 // setupEmptyZillizCollection creates a fresh empty Zilliz collection for testing
-func setupEmptyZillizCollection(t *testing.T) VectorStore {
+func setupEmptyZillizCollection(t *testing.T) vectorstore.VectorStore {
 	t.Helper()
 
 	endpoint := os.Getenv("ZILLIZ_ENDPOINT")
@@ -23,7 +26,7 @@ func setupEmptyZillizCollection(t *testing.T) VectorStore {
 
 	collectionName := "vkfs_test_" + t.Name() + "_" + time.Now().Format("20060102150405")
 
-	adapter, err := NewZillizAdapter(ZillizConfig{
+	adapter, err := vectorstore.NewZillizAdapter(vectorstore.ZillizConfig{
 		Endpoint:   endpoint,
 		APIKey:     apiKey,
 		Collection: collectionName,
@@ -34,21 +37,21 @@ func setupEmptyZillizCollection(t *testing.T) VectorStore {
 }
 
 // cleanupZillizCollection drops the test collection
-func cleanupZillizCollection(t *testing.T, store VectorStore) {
+func cleanupZillizCollection(t *testing.T, store vectorstore.VectorStore) {
 	t.Helper()
-	if adapter, ok := store.(*ZillizAdapter); ok {
-		_ = adapter.DropCollection(context.Background())
-	}
+	// Note: DropCollection not yet implemented in adapter
+	// For now, this is a no-op placeholder
+	_ = store
 }
 
 // setupZillizWithSampleData creates a collection with initialized PathTree
-func setupZillizWithSampleData(t *testing.T) VectorStore {
+func setupZillizWithSampleData(t *testing.T) vectorstore.VectorStore {
 	t.Helper()
 	store := setupEmptyZillizCollection(t)
 
 	// Initialize with empty PathTree
-	tree := PathTree{
-		Nodes: map[string]VirtualNode{
+	tree := vfs.PathTree{
+		Nodes: map[string]vfs.VirtualNode{
 			"/": {
 				Path:  "/",
 				Name:  "/",
@@ -64,7 +67,7 @@ func setupZillizWithSampleData(t *testing.T) VectorStore {
 }
 
 // setupZillizWithEmbedding creates a collection with specific embedding model metadata
-func setupZillizWithEmbedding(t *testing.T, modelName string) VectorStore {
+func setupZillizWithEmbedding(t *testing.T, modelName string) vectorstore.VectorStore {
 	t.Helper()
 	store := setupZillizWithSampleData(t)
 
@@ -84,7 +87,7 @@ func setupZillizWithEmbedding(t *testing.T, modelName string) VectorStore {
 }
 
 // setupZillizWithTimeout creates a store that simulates connection timeouts
-func setupZillizWithTimeout(t *testing.T, timeout time.Duration) VectorStore {
+func setupZillizWithTimeout(t *testing.T, timeout time.Duration) vectorstore.VectorStore {
 	t.Helper()
 	// Implementation would wrap real adapter with timeout simulation
 	// For now, return mock
@@ -92,7 +95,7 @@ func setupZillizWithTimeout(t *testing.T, timeout time.Duration) VectorStore {
 }
 
 // setupZillizWithTransientFailure creates a store that fails N times then succeeds
-func setupZillizWithTransientFailure(t *testing.T, failCount int) VectorStore {
+func setupZillizWithTransientFailure(t *testing.T, failCount int) vectorstore.VectorStore {
 	t.Helper()
 	return &MockTransientFailureStore{
 		failCount:    failCount,
@@ -102,7 +105,7 @@ func setupZillizWithTransientFailure(t *testing.T, failCount int) VectorStore {
 }
 
 // setupMockS3 creates a mock S3 store for testing lazy pointers
-func setupMockS3(t *testing.T) ExternalStore {
+func setupMockS3(t *testing.T) vfs.ExternalStore {
 	t.Helper()
 	return &MockS3Store{
 		storage: make(map[string][]byte),
@@ -110,7 +113,7 @@ func setupMockS3(t *testing.T) ExternalStore {
 }
 
 // setupFailingS3 creates an S3 store that fails N times
-func setupFailingS3(t *testing.T, failCount int) ExternalStore {
+func setupFailingS3(t *testing.T, failCount int) vfs.ExternalStore {
 	t.Helper()
 	return &MockFailingS3Store{
 		failCount:    failCount,
@@ -119,13 +122,13 @@ func setupFailingS3(t *testing.T, failCount int) ExternalStore {
 }
 
 // setupTimeoutS3 creates an S3 store that times out
-func setupTimeoutS3(t *testing.T, timeout time.Duration) ExternalStore {
+func setupTimeoutS3(t *testing.T, timeout time.Duration) vfs.ExternalStore {
 	t.Helper()
 	return &MockTimeoutS3Store{timeout: timeout}
 }
 
 // setupMockEmbedder creates a mock embedding provider
-func setupMockEmbedder(t *testing.T) EmbeddingProvider {
+func setupMockEmbedder(t *testing.T) vfs.EmbeddingProvider {
 	t.Helper()
 	return &MockEmbedder{
 		dimension: 1536, // OpenAI text-embedding-3-small dimension
@@ -133,16 +136,16 @@ func setupMockEmbedder(t *testing.T) EmbeddingProvider {
 }
 
 // setupTimeoutEmbedder creates an embedder that times out
-func setupTimeoutEmbedder(t *testing.T, timeout time.Duration) EmbeddingProvider {
+func setupTimeoutEmbedder(t *testing.T, timeout time.Duration) vfs.EmbeddingProvider {
 	t.Helper()
 	return &MockTimeoutEmbedder{timeout: timeout}
 }
 
 // runVKFSAdminInit runs vkfs-admin init command
-func runVKFSAdminInit(ctx context.Context, store VectorStore) error {
+func runVKFSAdminInit(ctx context.Context, store vectorstore.VectorStore) error {
 	// Initialize empty PathTree with root node
-	tree := PathTree{
-		Nodes: map[string]VirtualNode{
+	tree := vfs.PathTree{
+		Nodes: map[string]vfs.VirtualNode{
 			"/": {
 				Path:      "/",
 				Name:      "/",
@@ -164,15 +167,15 @@ func runVKFSCommand(ctx context.Context, command string, args ...string) (string
 }
 
 // ingestTestFile ingests a file into the vector store
-func ingestTestFile(t *testing.T, store VectorStore, path string, content string) {
+func ingestTestFile(t *testing.T, store vectorstore.VectorStore, path string, content string) {
 	t.Helper()
 
 	// Split content into chunks (simple line-based chunking for tests)
 	lines := splitIntoChunks(content, 100) // 100 chars per chunk
-	chunks := make([]Chunk, len(lines))
+	chunks := make([]vfs.Chunk, len(lines))
 
 	for i, line := range lines {
-		chunks[i] = Chunk{
+		chunks[i] = vfs.Chunk{
 			ID:         generateChunkID(path, i),
 			PageSlug:   path,
 			ChunkIndex: i,
@@ -189,7 +192,7 @@ func ingestTestFile(t *testing.T, store VectorStore, path string, content string
 }
 
 // ingestLargeCorpus ingests N chunks for performance testing
-func ingestLargeCorpus(t *testing.T, store VectorStore, chunkCount int) {
+func ingestLargeCorpus(t *testing.T, store vectorstore.VectorStore, chunkCount int) {
 	t.Helper()
 
 	chunksPerFile := 10
@@ -273,14 +276,14 @@ func generateTestContent(chunkCount int) string {
 	return content
 }
 
-func updatePathTreeWithFile(t *testing.T, store VectorStore, path string, size int64) {
+func updatePathTreeWithFile(t *testing.T, store vectorstore.VectorStore, path string, size int64) {
 	t.Helper()
 
 	tree, err := store.GetPathTree(context.Background())
 	require.NoError(t, err)
 
 	// Add file node to tree
-	node := VirtualNode{
+	node := vfs.VirtualNode{
 		Path:      path,
 		Name:      extractFileName(path),
 		IsDir:     false,
@@ -291,7 +294,7 @@ func updatePathTreeWithFile(t *testing.T, store VectorStore, path string, size i
 	tree.Nodes[path] = node
 
 	// Ensure parent directories exist
-	ensureParentDirs(tree, path)
+	ensureParentDirs(&tree, path)
 
 	err = store.UpsertPathTree(context.Background(), tree)
 	require.NoError(t, err)
@@ -307,7 +310,7 @@ func extractFileName(path string) string {
 	return path
 }
 
-func ensureParentDirs(tree *PathTree, path string) {
+func ensureParentDirs(tree *vfs.PathTree, path string) {
 	// Ensure all parent directories exist in tree
 	// "/test/subdir/file.md" → ensure "/test" and "/test/subdir" exist
 	parts := []string{}
@@ -323,7 +326,7 @@ func ensureParentDirs(tree *PathTree, path string) {
 
 	for _, dir := range parts {
 		if _, exists := tree.Nodes[dir]; !exists {
-			tree.Nodes[dir] = VirtualNode{
+			tree.Nodes[dir] = vfs.VirtualNode{
 				Path:      dir,
 				Name:      extractFileName(dir),
 				IsDir:     true,

@@ -12,18 +12,20 @@ import (
 
 // OllamaProvider implements EmbeddingProvider for Ollama native API
 type OllamaProvider struct {
-	baseURL string
-	model   string
-	apiKey  string
-	client  *http.Client
+	baseURL   string
+	model     string
+	apiKey    string
+	dimension int
+	client    *http.Client
 }
 
 // NewOllamaProvider creates a new Ollama embedding provider
 func NewOllamaProvider(model string) *OllamaProvider {
 	return &OllamaProvider{
-		model:   model,
-		baseURL: "http://localhost:11434",
-		client:  &http.Client{},
+		model:     model,
+		baseURL:   "http://localhost:11434",
+		dimension: -1, // -1 means unknown, user should set via WithDimension
+		client:    &http.Client{},
 	}
 }
 
@@ -36,6 +38,13 @@ func (p *OllamaProvider) WithBaseURL(url string) *OllamaProvider {
 // WithAPIKey sets an optional API key for authenticated Ollama instances
 func (p *OllamaProvider) WithAPIKey(key string) *OllamaProvider {
 	p.apiKey = key
+	return p
+}
+
+// WithDimension sets the embedding dimension for the model
+// This is required since Ollama models can have different dimensions
+func (p *OllamaProvider) WithDimension(dim int) *OllamaProvider {
+	p.dimension = dim
 	return p
 }
 
@@ -105,7 +114,7 @@ func (p *OllamaProvider) EmbedBatch(ctx context.Context, texts []string) ([][]fl
 	return respData.Embeddings, nil
 }
 
-// Dimension returns the embedding dimension (-1 = unknown, varies by model)
+// Dimension returns the embedding dimension (-1 = unknown, user must set via WithDimension)
 func (p *OllamaProvider) Dimension() int {
-	return -1
+	return p.dimension
 }

@@ -1,14 +1,18 @@
 package unit
 
 import (
-	"testing"
+	"errors"
+	"os"
+	"strconv"
+	"strings"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
+
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // validateChunkIntegrity checks that chunks form a valid contiguous sequence
-func validateChunkIntegrity(chunks []Chunk) error {
+func validateChunkIntegrity(chunks []vfs.Chunk) error {
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -19,7 +23,7 @@ func validateChunkIntegrity(chunks []Chunk) error {
 
 	for _, chunk := range chunks {
 		if indexMap[chunk.ChunkIndex] {
-			return errors.New("Duplicate chunk index " + string(rune(chunk.ChunkIndex)))
+			return errors.New("Duplicate chunk index " + strconv.Itoa(chunk.ChunkIndex))
 		}
 		indexMap[chunk.ChunkIndex] = true
 
@@ -31,7 +35,7 @@ func validateChunkIntegrity(chunks []Chunk) error {
 	// Verify contiguous sequence starting from 0
 	for i := 0; i <= maxIndex; i++ {
 		if !indexMap[i] {
-			return errors.New("Chunk " + string(rune(i)) + " missing")
+			return errors.New("Chunk " + strconv.Itoa(i) + " missing")
 		}
 	}
 
@@ -69,14 +73,14 @@ func loadConfig(configYAML string) (*Config, error) {
 }
 
 // buildTestPathTree constructs a PathTree from a list of file paths
-func buildTestPathTree(paths []string) *PathTree {
-	tree := &PathTree{
-		Nodes:   make(map[string]VirtualNode),
+func buildTestPathTree(paths []string) *vfs.PathTree {
+	tree := &vfs.PathTree{
+		Nodes:   make(map[string]vfs.VirtualNode),
 		Version: "1.0",
 	}
 
 	// Add root
-	tree.Nodes["/"] = VirtualNode{
+	tree.Nodes["/"] = vfs.VirtualNode{
 		Path:  "/",
 		Name:  "/",
 		IsDir: true,
@@ -85,7 +89,7 @@ func buildTestPathTree(paths []string) *PathTree {
 	// Add each path
 	for _, path := range paths {
 		// Add file node
-		tree.Nodes[path] = VirtualNode{
+		tree.Nodes[path] = vfs.VirtualNode{
 			Path:  path,
 			Name:  extractFileName(path),
 			IsDir: false,
@@ -98,12 +102,12 @@ func buildTestPathTree(paths []string) *PathTree {
 	return tree
 }
 
-// PathTree methods for testing
+// PathTree helper functions for testing
 
-func (t *PathTree) ListChildren(dirPath string) []string {
+func listChildren(tree *vfs.PathTree, dirPath string) []string {
 	var children []string
 
-	for path, node := range t.Nodes {
+	for path, node := range tree.Nodes {
 		if path == dirPath {
 			continue
 		}
@@ -117,10 +121,10 @@ func (t *PathTree) ListChildren(dirPath string) []string {
 	return children
 }
 
-func (t *PathTree) Find(rootPath string, pattern string) []string {
+func findPaths(tree *vfs.PathTree, rootPath string, pattern string) []string {
 	var results []string
 
-	for path, node := range t.Nodes {
+	for path, node := range tree.Nodes {
 		// Skip directories
 		if node.IsDir {
 			continue
@@ -140,8 +144,8 @@ func (t *PathTree) Find(rootPath string, pattern string) []string {
 	return results
 }
 
-func (t *PathTree) GetNode(path string) (VirtualNode, bool) {
-	node, exists := t.Nodes[path]
+func getNode(tree *vfs.PathTree, path string) (vfs.VirtualNode, bool) {
+	node, exists := tree.Nodes[path]
 	return node, exists
 }
 
@@ -200,25 +204,20 @@ func extractFileName(path string) string {
 	return path
 }
 
-func ensureParentDirs(tree *PathTree, path string) {
+func ensureParentDirs(tree *vfs.PathTree, path string) {
 	// Build list of parent directories
 	var dirs []string
-	current := ""
 
 	for i := 1; i < len(path); i++ {
 		if path[i] == '/' {
-			current += "/"
-			dirs = append(dirs, current)
-			current = ""
-		} else {
-			current += string(path[i])
+			dirs = append(dirs, path[:i])
 		}
 	}
 
 	// Add each parent directory if it doesn't exist
 	for _, dir := range dirs {
 		if _, exists := tree.Nodes[dir]; !exists {
-			tree.Nodes[dir] = VirtualNode{
+			tree.Nodes[dir] = vfs.VirtualNode{
 				Path:  dir,
 				Name:  extractFileName(dir),
 				IsDir: true,
@@ -228,60 +227,42 @@ func ensureParentDirs(tree *PathTree, path string) {
 }
 
 func interpolateEnvVars(cfg Config) Config {
-	// Replace ${VAR} with environment variable values
-	// Simplified implementation for testing
+	cfg.VectorStore.Zilliz.APIKey = expandTestEnv(cfg.VectorStore.Zilliz.APIKey)
+	cfg.VectorStore.Zilliz.Endpoint = expandTestEnv(cfg.VectorStore.Zilliz.Endpoint)
+	cfg.Embedding.OpenAI.APIKey = expandTestEnv(cfg.Embedding.OpenAI.APIKey)
 	return cfg
 }
 
-// Type definitions for testing (these would normally be in pkg/)
-
-type Chunk struct {
-	ID         string
-	PageSlug   string
-	ChunkIndex int
-	Text       string
-	Embedding  []float32
+func expandTestEnv(s string) string {
+	return os.Expand(s, func(key string) string {
+		return os.Getenv(strings.TrimSpace(key))
+	})
 }
 
-type VirtualNode struct {
-	Path      string
-	Name      string
-	IsDir     bool
-	Size      int64
-	ModTime   time.Time
-	VisibleTo []string
-	Metadata  map[string]string
-}
-
-type PathTree struct {
-	Nodes    map[string]VirtualNode
-	Version  string
-	Metadata map[string]string
-}
-
+// Config type for testing
 type Config struct {
 	VectorStore struct {
-		Backend string
+		Backend string `yaml:"backend"`
 		Zilliz  struct {
-			Endpoint   string
-			APIKey     string
-			Collection string
-		}
+			Endpoint   string `yaml:"endpoint"`
+			APIKey     string `yaml:"api_key"`
+			Collection string `yaml:"collection"`
+		} `yaml:"zilliz"`
 		Qdrant struct {
-			Endpoint   string
-			APIKey     string
-			Collection string
-		}
-	}
+			Endpoint   string `yaml:"endpoint"`
+			APIKey     string `yaml:"api_key"`
+			Collection string `yaml:"collection"`
+		} `yaml:"qdrant"`
+	} `yaml:"vectorstore"`
 	Embedding struct {
-		Provider string
+		Provider string `yaml:"provider"`
 		OpenAI   struct {
-			APIKey string
-			Model  string
-		}
+			APIKey string `yaml:"api_key"`
+			Model  string `yaml:"model"`
+		} `yaml:"openai"`
 		Cohere struct {
-			APIKey string
-			Model  string
-		}
-	}
+			APIKey string `yaml:"api_key"`
+			Model  string `yaml:"model"`
+		} `yaml:"cohere"`
+	} `yaml:"embedding"`
 }

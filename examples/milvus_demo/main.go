@@ -94,7 +94,7 @@ func main() {
 	if err := fs.Init(ctx); err != nil {
 		fatal("init filesystem", err)
 	}
-	fmt.Println("PathTree initialized\n")
+	fmt.Println("PathTree initialized")
 
 	// Ingest sample data
 	sampleDir := "examples/sample_data"

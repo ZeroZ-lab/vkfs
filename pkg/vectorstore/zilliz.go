@@ -407,6 +407,10 @@ func (z *ZillizAdapter) SearchVector(ctx context.Context, queryVec []float32, fi
 	return hits, nil
 }
 
+// SearchHybrid performs hybrid search (text + vector)
+// TODO: Full implementation - combine text search scores (BM25) with vector scores using RRF or similar
 func (z *ZillizAdapter) SearchHybrid(ctx context.Context, queryVec []float32, pattern string, filter vfs.PathFilter, topK int) ([]vfs.SearchHit, error) {
-	return nil, fmt.Errorf("not implemented yet")
+	// Simplified implementation: just do vector search for now
+	// A full implementation would combine text search scores with vector scores
+	return z.SearchVector(ctx, queryVec, filter, topK)
 }

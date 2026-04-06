@@ -351,8 +351,9 @@ func (z *ZillizRESTAdapter) SearchVector(ctx context.Context, queryVec []float32
 }
 
 // SearchHybrid is not yet implemented
+// TODO: Full implementation - combine text search scores (BM25) with vector scores using RRF or similar
 func (z *ZillizRESTAdapter) SearchHybrid(ctx context.Context, queryVec []float32, pattern string, filter vfs.PathFilter, topK int) ([]vfs.SearchHit, error) {
-	return nil, fmt.Errorf("not implemented yet")
+	return nil, fmt.Errorf("SearchHybrid not implemented yet")
 }
 
 // JSON helper functions

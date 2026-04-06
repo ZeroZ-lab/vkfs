@@ -5,12 +5,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // TestChunkIntegrity verifies chunk validation logic in isolation
 func TestChunkIntegrity(t *testing.T) {
 	t.Run("valid contiguous chunks passes validation", func(t *testing.T) {
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ChunkIndex: 0, Text: "a"},
 			{ChunkIndex: 1, Text: "b"},
 			{ChunkIndex: 2, Text: "c"},
@@ -21,7 +23,7 @@ func TestChunkIntegrity(t *testing.T) {
 
 	t.Run("non-contiguous chunks fails with clear error", func(t *testing.T) {
 		// Chunks: 0, 1, 3, 5 — gaps at 2 and 4
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ChunkIndex: 0, Text: "a"},
 			{ChunkIndex: 1, Text: "b"},
 			{ChunkIndex: 3, Text: "d"},
@@ -34,7 +36,7 @@ func TestChunkIntegrity(t *testing.T) {
 	})
 
 	t.Run("chunks not starting from 0 fails with clear error", func(t *testing.T) {
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ChunkIndex: 5, Text: "a"},
 			{ChunkIndex: 6, Text: "b"},
 		}
@@ -45,7 +47,7 @@ func TestChunkIntegrity(t *testing.T) {
 	})
 
 	t.Run("duplicate chunk index fails with clear error", func(t *testing.T) {
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ChunkIndex: 0, Text: "a"},
 			{ChunkIndex: 1, Text: "b"},
 			{ChunkIndex: 2, Text: "c"},
@@ -58,12 +60,12 @@ func TestChunkIntegrity(t *testing.T) {
 	})
 
 	t.Run("empty chunks list is valid", func(t *testing.T) {
-		err := validateChunkIntegrity([]Chunk{})
+		err := validateChunkIntegrity([]vfs.Chunk{})
 		require.NoError(t, err)
 	})
 
 	t.Run("single chunk at index 0 is valid", func(t *testing.T) {
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ChunkIndex: 0, Text: "only chunk"},
 		}
 		err := validateChunkIntegrity(chunks)
@@ -80,7 +82,7 @@ func TestPathTreeOperations(t *testing.T) {
 			"/a/d/e.md",
 		})
 
-		children := tree.ListChildren("/a")
+		children := listChildren(tree, "/a")
 		assert.ElementsMatch(t, children, []string{"b.md", "c.md", "d"},
 			"should return files and immediate subdirs")
 		assert.NotContains(t, children, "e.md",
@@ -95,21 +97,21 @@ func TestPathTreeOperations(t *testing.T) {
 			"/code/types.go",
 		})
 
-		results := tree.Find("/", "*.md")
+		results := findPaths(tree, "/", "*.md")
 		assert.ElementsMatch(t, results, []string{"/docs/readme.md"})
 
-		results = tree.Find("/", "*.go")
+		results = findPaths(tree, "/", "*.go")
 		assert.ElementsMatch(t, results, []string{"/code/main.go", "/code/types.go"})
 	})
 
 	t.Run("node lookup is case-sensitive", func(t *testing.T) {
 		tree := buildTestPathTree([]string{"/test/File.md"})
 
-		node, exists := tree.GetNode("/test/File.md")
+		node, exists := getNode(tree, "/test/File.md")
 		assert.True(t, exists)
 		assert.Equal(t, "File.md", node.Name)
 
-		_, exists = tree.GetNode("/test/file.md")
+		_, exists = getNode(tree, "/test/file.md")
 		assert.False(t, exists, "path lookup should be case-sensitive")
 	})
 }

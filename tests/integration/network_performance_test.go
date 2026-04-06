@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // TestNetworkFailures verifies retry logic and error handling
@@ -27,10 +29,10 @@ func TestNetworkFailures(t *testing.T) {
 
 	t.Run("S3 timeout during cat retries 3x then fails", func(t *testing.T) {
 		store := setupZillizWithSampleData(t)
-		s3Store := setupTimeoutS3(t, 5*time.Second) // Timeout exceeds retry threshold
+		_ = setupTimeoutS3(t, 5*time.Second) // Timeout exceeds retry threshold
 		defer cleanupZillizCollection(t, store)
 
-		lazyPointer := LazyPointer{
+		lazyPointer := vfs.LazyPointer{
 			PageSlug:    "/test/timeout.md",
 			ExternalURL: "s3://test-bucket/timeout.md",
 			Size:        1000,
@@ -54,7 +56,7 @@ func TestNetworkFailures(t *testing.T) {
 
 	t.Run("OpenAI API timeout during search returns clear error", func(t *testing.T) {
 		store := setupZillizWithSampleData(t)
-		embedder := setupTimeoutEmbedder(t, 5*time.Second)
+		_ = setupTimeoutEmbedder(t, 5*time.Second)
 		defer cleanupZillizCollection(t, store)
 
 		ingestTestFile(t, store, "/test/doc.md", "content")
@@ -70,7 +72,7 @@ func TestNetworkFailures(t *testing.T) {
 		defer cleanupZillizCollection(t, store)
 
 		// Should succeed on 3rd attempt
-		output, err := runVKFSCommand(ctx, "ls", "/")
+		_, err := runVKFSCommand(ctx, "ls", "/")
 		require.NoError(t, err)
 
 		// Verify logs show retry attempts

@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // TestFileNavigation verifies ls command behavior across various scenarios
@@ -60,7 +62,7 @@ func TestCatCommand(t *testing.T) {
 
 	t.Run("cat with lazy pointer fetches from S3", func(t *testing.T) {
 		store := setupZillizWithSampleData(t)
-		s3Store := setupMockS3(t)
+		s3Store := setupMockS3(t).(*MockS3Store) // need Put method
 		defer cleanupZillizCollection(t, store)
 
 		// Upload large file to S3 and create lazy pointer
@@ -69,7 +71,7 @@ func TestCatCommand(t *testing.T) {
 		err := s3Store.Put(ctx, s3Key, []byte(largeContent))
 		require.NoError(t, err)
 
-		lazyPointer := LazyPointer{
+		lazyPointer := vfs.LazyPointer{
 			PageSlug:    "/test/large-file.md",
 			ExternalURL: "s3://test-bucket/" + s3Key,
 			Size:        int64(len(largeContent)),
@@ -85,10 +87,10 @@ func TestCatCommand(t *testing.T) {
 
 	t.Run("S3 unavailable retries 3 times then fails", func(t *testing.T) {
 		store := setupZillizWithSampleData(t)
-		s3Store := setupFailingS3(t, 5) // Fail 5 times (more than 3 retries)
+		_ = setupFailingS3(t, 5) // Fail 5 times (more than 3 retries)
 		defer cleanupZillizCollection(t, store)
 
-		lazyPointer := LazyPointer{
+		lazyPointer := vfs.LazyPointer{
 			PageSlug:    "/test/unavailable.md",
 			ExternalURL: "s3://test-bucket/unavailable.md",
 			Size:        1000,
@@ -107,7 +109,7 @@ func TestCatCommand(t *testing.T) {
 		defer cleanupZillizCollection(t, store)
 
 		// Ingest file with 5 chunks (index 0-4)
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ID: "1", PageSlug: "/test/doc.md", ChunkIndex: 0, Text: "chunk 0\n"},
 			{ID: "2", PageSlug: "/test/doc.md", ChunkIndex: 1, Text: "chunk 1\n"},
 			{ID: "3", PageSlug: "/test/doc.md", ChunkIndex: 2, Text: "chunk 2\n"},
@@ -127,7 +129,7 @@ func TestCatCommand(t *testing.T) {
 		defer cleanupZillizCollection(t, store)
 
 		// Ingest chunks with gap: 0, 1, 3, 4 (missing 2)
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ID: "1", PageSlug: "/test/doc.md", ChunkIndex: 0, Text: "chunk 0\n"},
 			{ID: "2", PageSlug: "/test/doc.md", ChunkIndex: 1, Text: "chunk 1\n"},
 			{ID: "4", PageSlug: "/test/doc.md", ChunkIndex: 3, Text: "chunk 3\n"},
@@ -147,7 +149,7 @@ func TestCatCommand(t *testing.T) {
 		defer cleanupZillizCollection(t, store)
 
 		// Ingest chunks with duplicate index 2
-		chunks := []Chunk{
+		chunks := []vfs.Chunk{
 			{ID: "1", PageSlug: "/test/doc.md", ChunkIndex: 0, Text: "chunk 0\n"},
 			{ID: "2", PageSlug: "/test/doc.md", ChunkIndex: 1, Text: "chunk 1\n"},
 			{ID: "3", PageSlug: "/test/doc.md", ChunkIndex: 2, Text: "chunk 2a\n"},

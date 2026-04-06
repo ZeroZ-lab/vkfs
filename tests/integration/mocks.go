@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/ZeroZ-lab/vkfs/pkg/vectorstore"
+	"github.com/ZeroZ-lab/vkfs/pkg/vfs"
 )
 
 // Mock implementations for testing
@@ -13,21 +16,21 @@ type MockTimeoutStore struct {
 	timeout time.Duration
 }
 
-func (m *MockTimeoutStore) GetPathTree(ctx context.Context) (PathTree, error) {
+func (m *MockTimeoutStore) GetPathTree(ctx context.Context) (vfs.PathTree, error) {
 	time.Sleep(m.timeout)
-	return PathTree{}, errors.New("connection timeout")
+	return vfs.PathTree{}, errors.New("connection timeout")
 }
 
-func (m *MockTimeoutStore) UpsertPathTree(ctx context.Context, tree PathTree) error {
+func (m *MockTimeoutStore) UpsertPathTree(ctx context.Context, tree vfs.PathTree) error {
 	time.Sleep(m.timeout)
 	return errors.New("connection timeout")
 }
 
-func (m *MockTimeoutStore) UpsertChunks(ctx context.Context, chunks []Chunk) error {
+func (m *MockTimeoutStore) UpsertChunks(ctx context.Context, chunks []vfs.Chunk) error {
 	return errors.New("not implemented")
 }
 
-func (m *MockTimeoutStore) GetChunksByPage(ctx context.Context, pageSlug string) ([]Chunk, error) {
+func (m *MockTimeoutStore) GetChunksByPage(ctx context.Context, pageSlug string) ([]vfs.Chunk, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -35,23 +38,23 @@ func (m *MockTimeoutStore) DeleteChunksByPage(ctx context.Context, pageSlug stri
 	return errors.New("not implemented")
 }
 
-func (m *MockTimeoutStore) UpsertLazyPointer(ctx context.Context, pointer LazyPointer) error {
+func (m *MockTimeoutStore) UpsertLazyPointer(ctx context.Context, pointer vfs.LazyPointer) error {
 	return errors.New("not implemented")
 }
 
-func (m *MockTimeoutStore) GetLazyPointer(ctx context.Context, pageSlug string) (*LazyPointer, error) {
+func (m *MockTimeoutStore) GetLazyPointer(ctx context.Context, pageSlug string) (*vfs.LazyPointer, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTimeoutStore) SearchText(ctx context.Context, pattern string, filter PathFilter, limit int) ([]Chunk, error) {
+func (m *MockTimeoutStore) SearchText(ctx context.Context, pattern string, filter vfs.PathFilter, limit int) ([]vfs.Chunk, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTimeoutStore) SearchVector(ctx context.Context, queryVec []float32, filter PathFilter, topK int) ([]SearchHit, error) {
+func (m *MockTimeoutStore) SearchVector(ctx context.Context, queryVec []float32, filter vfs.PathFilter, topK int) ([]vfs.SearchHit, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTimeoutStore) SearchHybrid(ctx context.Context, queryVec []float32, pattern string, filter PathFilter, topK int) ([]SearchHit, error) {
+func (m *MockTimeoutStore) SearchHybrid(ctx context.Context, queryVec []float32, pattern string, filter vfs.PathFilter, topK int) ([]vfs.SearchHit, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -59,26 +62,26 @@ func (m *MockTimeoutStore) SearchHybrid(ctx context.Context, queryVec []float32,
 type MockTransientFailureStore struct {
 	failCount    int
 	attemptCount int
-	realStore    VectorStore
+	realStore    vectorstore.VectorStore
 }
 
-func (m *MockTransientFailureStore) GetPathTree(ctx context.Context) (PathTree, error) {
+func (m *MockTransientFailureStore) GetPathTree(ctx context.Context) (vfs.PathTree, error) {
 	m.attemptCount++
 	if m.attemptCount <= m.failCount {
-		return PathTree{}, errors.New("transient network error")
+		return vfs.PathTree{}, errors.New("transient network error")
 	}
 	return m.realStore.GetPathTree(ctx)
 }
 
-func (m *MockTransientFailureStore) UpsertPathTree(ctx context.Context, tree PathTree) error {
+func (m *MockTransientFailureStore) UpsertPathTree(ctx context.Context, tree vfs.PathTree) error {
 	return m.realStore.UpsertPathTree(ctx, tree)
 }
 
-func (m *MockTransientFailureStore) UpsertChunks(ctx context.Context, chunks []Chunk) error {
+func (m *MockTransientFailureStore) UpsertChunks(ctx context.Context, chunks []vfs.Chunk) error {
 	return m.realStore.UpsertChunks(ctx, chunks)
 }
 
-func (m *MockTransientFailureStore) GetChunksByPage(ctx context.Context, pageSlug string) ([]Chunk, error) {
+func (m *MockTransientFailureStore) GetChunksByPage(ctx context.Context, pageSlug string) ([]vfs.Chunk, error) {
 	return m.realStore.GetChunksByPage(ctx, pageSlug)
 }
 
@@ -86,23 +89,23 @@ func (m *MockTransientFailureStore) DeleteChunksByPage(ctx context.Context, page
 	return m.realStore.DeleteChunksByPage(ctx, pageSlug)
 }
 
-func (m *MockTransientFailureStore) UpsertLazyPointer(ctx context.Context, pointer LazyPointer) error {
+func (m *MockTransientFailureStore) UpsertLazyPointer(ctx context.Context, pointer vfs.LazyPointer) error {
 	return m.realStore.UpsertLazyPointer(ctx, pointer)
 }
 
-func (m *MockTransientFailureStore) GetLazyPointer(ctx context.Context, pageSlug string) (*LazyPointer, error) {
+func (m *MockTransientFailureStore) GetLazyPointer(ctx context.Context, pageSlug string) (*vfs.LazyPointer, error) {
 	return m.realStore.GetLazyPointer(ctx, pageSlug)
 }
 
-func (m *MockTransientFailureStore) SearchText(ctx context.Context, pattern string, filter PathFilter, limit int) ([]Chunk, error) {
+func (m *MockTransientFailureStore) SearchText(ctx context.Context, pattern string, filter vfs.PathFilter, limit int) ([]vfs.Chunk, error) {
 	return m.realStore.SearchText(ctx, pattern, filter, limit)
 }
 
-func (m *MockTransientFailureStore) SearchVector(ctx context.Context, queryVec []float32, filter PathFilter, topK int) ([]SearchHit, error) {
+func (m *MockTransientFailureStore) SearchVector(ctx context.Context, queryVec []float32, filter vfs.PathFilter, topK int) ([]vfs.SearchHit, error) {
 	return m.realStore.SearchVector(ctx, queryVec, filter, topK)
 }
 
-func (m *MockTransientFailureStore) SearchHybrid(ctx context.Context, queryVec []float32, pattern string, filter PathFilter, topK int) ([]SearchHit, error) {
+func (m *MockTransientFailureStore) SearchHybrid(ctx context.Context, queryVec []float32, pattern string, filter vfs.PathFilter, topK int) ([]vfs.SearchHit, error) {
 	return m.realStore.SearchHybrid(ctx, queryVec, pattern, filter, topK)
 }
 

@@ -60,6 +60,20 @@ func (m *mockVectorStore) UpsertChunks(_ context.Context, chunks []Chunk) error 
 	return nil
 }
 
+func (m *mockVectorStore) DeleteChunksByPage(_ context.Context, pageSlug string) error {
+	delete(m.chunks, pageSlug)
+	return nil
+}
+
+func (m *mockVectorStore) UpsertLazyPointer(_ context.Context, pointer LazyPointer) error {
+	m.ptrs[pointer.PageSlug] = &pointer
+	return nil
+}
+
+func (m *mockVectorStore) SearchHybrid(_ context.Context, _ []float32, _ string, _ PathFilter, _ int) ([]SearchHit, error) {
+	return []SearchHit{}, nil
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		func() bool {

@@ -48,9 +48,10 @@ type Config struct {
 			Model  string `yaml:"model"`
 		} `yaml:"siliconflow"`
 		Ollama struct {
-			BaseURL string `yaml:"base_url"`
-			Model   string `yaml:"model"`
-			APIKey  string `yaml:"api_key"`
+			BaseURL   string `yaml:"base_url"`
+			Model     string `yaml:"model"`
+			APIKey    string `yaml:"api_key"`
+			Dimension int    `yaml:"dimension"` // required for Ollama since dimension varies by model
 		} `yaml:"ollama"`
 	} `yaml:"embedding"`
 
@@ -198,6 +199,9 @@ func (c *Config) Validate() error {
 	if c.Embedding.Provider == "ollama" {
 		if c.Embedding.Ollama.Model == "" {
 			return fmt.Errorf("ollama.model is required")
+		}
+		if c.Embedding.Ollama.Dimension <= 0 {
+			return fmt.Errorf("ollama.dimension is required (must be a positive integer, e.g., 4096 for nomic-embed-text)")
 		}
 		if c.Embedding.Ollama.BaseURL == "" {
 			c.Embedding.Ollama.BaseURL = "http://localhost:11434"

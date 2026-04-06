@@ -51,7 +51,7 @@ func main() {
 	}
 
 	// ls /
-	fmt.Println("=== VKFS Zilliz Cloud Demo ===\n")
+	fmt.Println("=== VKFS Zilliz Cloud Demo ===")
 
 	fmt.Println("--- ls / ---")
 	nodes, err := fs.Ls("/")

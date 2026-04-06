@@ -49,6 +49,10 @@ func (m *mockEmbedder) EmbedBatch(_ context.Context, texts []string) ([][]float3
 	return result, nil
 }
 
+func (m *mockEmbedder) Dimension() int {
+	return m.dim
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -101,7 +105,7 @@ func main() {
 	if err := fs.Init(ctx); err != nil {
 		fatal("init filesystem", err)
 	}
-	fmt.Println("Initialized empty VKFS\n")
+	fmt.Println("Initialized empty VKFS")
 
 	// 4. Ingest sample files (use the examples/sample_data/ directory)
 	sampleDir := filepath.Join("examples", "sample_data")

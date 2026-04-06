@@ -82,7 +82,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search embeds query and returns top-K results with scores", func(t *testing.T) {
 		store := setupZillizWithSampleData(t)
-		embedder := setupMockEmbedder(t)
+		_ = setupMockEmbedder(t) // will be used by runVKFSCommand
 		defer cleanupZillizCollection(t, store)
 
 		// Ingest semantically related documents

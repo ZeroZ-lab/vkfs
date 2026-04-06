@@ -29,6 +29,10 @@ func NewFromConfig(cfg *config.Config) (EmbeddingProvider, error) {
 		if cfg.Embedding.Ollama.APIKey != "" {
 			p.WithAPIKey(cfg.Embedding.Ollama.APIKey)
 		}
+		// Dimension is validated in config, set it here
+		if cfg.Embedding.Ollama.Dimension > 0 {
+			p.WithDimension(cfg.Embedding.Ollama.Dimension)
+		}
 		return p, nil
 	default:
 		return nil, fmt.Errorf("unsupported embedding provider: %s", cfg.Embedding.Provider)

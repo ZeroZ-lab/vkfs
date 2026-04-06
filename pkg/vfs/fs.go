@@ -5,10 +5,38 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 )
+
+// maxRegexLength limits pattern length to prevent ReDoS
+const maxRegexLength = 1000
+
+// validateRegexPattern checks if a regex pattern is safe to compile
+// Returns an error if the pattern is too complex (potential ReDoS)
+func validateRegexPattern(pattern string) error {
+	if len(pattern) > maxRegexLength {
+		return fmt.Errorf("regex pattern too long: %d characters (max %d)", len(pattern), maxRegexLength)
+	}
+
+	// Check for dangerous patterns that could cause catastrophic backtracking
+	// e.g., nested quantifiers like (a+)+, (a*)*, etc.
+	dangerousPatterns := []string{
+		`\+\)`,   // )+ patterns
+		`\*\)`,   // )* patterns
+		`\+\+`,   // ++ patterns
+		`\*\*`,   // ** patterns
+	}
+	for _, dp := range dangerousPatterns {
+		if matched, _ := regexp.MatchString(dp, pattern); matched {
+			return fmt.Errorf("regex pattern contains potentially dangerous construct")
+		}
+	}
+
+	return nil
+}
 
 // VectorStore interface for vector database operations.
 // Implemented by ZillizAdapter, QdrantAdapter, etc.
@@ -17,9 +45,12 @@ type VectorStore interface {
 	GetPathTree(ctx context.Context) (PathTree, error)
 	UpsertChunks(ctx context.Context, chunks []Chunk) error
 	GetChunksByPage(ctx context.Context, pageSlug string) ([]Chunk, error)
+	DeleteChunksByPage(ctx context.Context, pageSlug string) error
+	UpsertLazyPointer(ctx context.Context, pointer LazyPointer) error
 	GetLazyPointer(ctx context.Context, pageSlug string) (*LazyPointer, error)
 	SearchText(ctx context.Context, pattern string, filter PathFilter, limit int) ([]Chunk, error)
 	SearchVector(ctx context.Context, queryVec []float32, filter PathFilter, topK int) ([]SearchHit, error)
+	SearchHybrid(ctx context.Context, queryVec []float32, pattern string, filter PathFilter, topK int) ([]SearchHit, error)
 }
 
 // ExternalStore interface for lazy pointer storage
@@ -31,6 +62,7 @@ type ExternalStore interface {
 type EmbeddingProvider interface {
 	Embed(ctx context.Context, text string) ([]float32, error)
 	EmbedBatch(ctx context.Context, texts []string) ([][]float32, error)
+	Dimension() int
 }
 
 // VirtualFS represents the virtual filesystem with in-memory PathTree
@@ -364,14 +396,24 @@ func (fs *VirtualFS) Grep(ctx context.Context, pattern string, rootPath string) 
 	// Stage 2: Regex fine filter (in-memory)
 	var results []GrepResult
 
+	// Validate regex pattern for safety (prevent ReDoS)
+	if err := validateRegexPattern(pattern); err != nil {
+		return nil, fmt.Errorf("unsafe regex pattern: %w", err)
+	}
+
+	// Compile regex pattern
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid regex pattern: %w", err)
+	}
+
 	for _, chunk := range chunks {
 		// Split chunk text into lines
 		lines := strings.Split(chunk.Text, "\n")
 
 		for lineNum, line := range lines {
-			// Check if line matches pattern (simple substring match for now)
-			// TODO: support full regex
-			if strings.Contains(line, pattern) {
+			// Check if line matches regex pattern
+			if re.MatchString(line) {
 				results = append(results, GrepResult{
 					Path:    chunk.PageSlug,
 					LineNum: lineNum + 1, // 1-indexed
