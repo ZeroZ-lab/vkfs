@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	stdpath "path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -116,7 +117,7 @@ func (fs *VirtualFS) buildIndexes() {
 			continue // root has no parent
 		}
 
-		parent := filepath.Dir(path)
+		parent := stdpath.Dir(path)
 		if parent == "." {
 			parent = "/"
 		}
@@ -152,7 +153,7 @@ func (fs *VirtualFS) Ls(path string) ([]VirtualNode, error) {
 	// Build result
 	result := make([]VirtualNode, 0, len(childNames))
 	for _, name := range childNames {
-		childPath := filepath.Join(path, name)
+		childPath := stdpath.Join(path, name)
 		if path == "/" {
 			childPath = "/" + name
 		}
@@ -212,7 +213,7 @@ func (fs *VirtualFS) Find(rootPath string, pattern string) ([]string, error) {
 		}
 
 		// Check if filename matches pattern
-		matched, err := filepath.Match(pattern, node.Name)
+		matched, err := stdpath.Match(pattern, node.Name)
 		if err != nil {
 			return nil, fmt.Errorf("invalid pattern: %w", err)
 		}

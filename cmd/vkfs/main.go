@@ -110,8 +110,15 @@ var catCmd = &cobra.Command{
 }
 
 var findCmd = &cobra.Command{
-	Use:   "find <path> -name <pattern>",
-	Short: "Search for files matching a pattern",
+	Use:   "find <path> --name <pattern>",
+	Short: "Search for files matching a glob pattern",
+	Long: `Search for files matching a glob pattern under the given path.
+
+Note: Use --name (double dash) to specify the pattern.
+
+Examples:
+  vkfs find / --name "*.md"        # find all .md files
+  vkfs find /docs --name "*.go"    # find .go files under /docs`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("path required")
@@ -120,7 +127,7 @@ var findCmd = &cobra.Command{
 		path := args[0]
 		pattern, _ := cmd.Flags().GetString("name")
 		if pattern == "" {
-			return fmt.Errorf("-name flag required")
+			return fmt.Errorf("--name flag required")
 		}
 
 		fs, err := initFS()
@@ -133,7 +140,6 @@ var findCmd = &cobra.Command{
 			return err
 		}
 
-		// Print results
 		for _, result := range results {
 			fmt.Println(result)
 		}
@@ -337,7 +343,7 @@ func initFS() (*vfs.VirtualFS, error) {
 
 func init() {
 	// Add flags
-	findCmd.Flags().StringP("name", "n", "", "filename pattern (glob)")
+	findCmd.Flags().String("name", "", "filename pattern (glob)")
 	searchCmd.Flags().Int("top-k", 10, "number of results to return")
 	benchCmd.Flags().String("data-dir", "", "path to dataset directory with corpus.jsonl and queries.jsonl")
 	benchCmd.Flags().String("config", "", "path to VKFS config file")
